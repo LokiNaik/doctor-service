@@ -1,0 +1,106 @@
+name: CI — Test & SonarCloud Analysis
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  build-and-test:
+    name: 🧪 Build, Test & Analyze
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: hms_doctor
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      # ── 1. Checkout ───────────────────────────────────────────────
+      - name: 📥 Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for SonarCloud blame info
+
+      # ── 2. JDK Setup ──────────────────────────────────────────────
+      - name: ☕ Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # ── 3. Cache Maven ────────────────────────────────────────────
+      - name: 📦 Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      # ── 4. Cache SonarCloud ───────────────────────────────────────
+      - name: 📦 Cache SonarCloud packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      # ── 5. Wait for MySQL ─────────────────────────────────────────
+      - name: ⏳ Wait for MySQL to be ready
+        run: |
+          until mysqladmin ping -h 127.0.0.1 -u root -proot --silent; do
+            echo "Waiting for MySQL..."
+            sleep 3
+          done
+
+      # ── 6. Run Tests ──────────────────────────────────────────────
+      - name: 🧪 Run Tests with Coverage
+        run: ./mvnw clean verify
+        env:
+          SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/hms_doctor
+          SPRING_DATASOURCE_USERNAME: root
+          SPRING_DATASOURCE_PASSWORD: root
+          SPRING_JPA_HIBERNATE_DDL_AUTO: create-drop
+
+      # ── 7. Publish Test Results ───────────────────────────────────
+      - name: 📊 Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: '**/target/surefire-reports/*.xml'
+
+      # ── 8. SonarCloud Analysis ────────────────────────────────────
+      - name: 🔍 SonarCloud Analysis
+        run: |
+          ./mvnw sonar:sonar \
+            -Dsonar.projectKey=LokiNaik_doctor-service \
+            -Dsonar.organization=lokinaik \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+            -Dsonar.java.source=17
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 9. Upload Coverage Artifact ───────────────────────────────
+      - name: 📈 Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jacoco-coverage-report
+          path: target/site/jacoco/
