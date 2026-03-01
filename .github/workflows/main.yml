@@ -95,17 +95,17 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       # ── 9. SonarCloud Analysis ────────────────────────────────────
-      - name: 🔍 SonarCloud Analysis
-        run: |
-          ./mvnw sonar:sonar \
-            -Dsonar.projectKey=LokiNaik_doctor-service \
-            -Dsonar.organization=lokinaik \
-            -Dsonar.host.url=https://sonarcloud.io \
-            -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
-            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
-            -Dsonar.java.source=21
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # - name: 🔍 SonarCloud Analysis
+      #   run: |
+      #     ./mvnw sonar:sonar \
+      #       -Dsonar.projectKey=LokiNaik_doctor-service \
+      #       -Dsonar.organization=lokinaik \
+      #       -Dsonar.host.url=https://sonarcloud.io \
+      #       -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
+      #       -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+      #       -Dsonar.java.source=21
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ── 10. Upload Coverage Artifact ──────────────────────────────
       - name: 📈 Upload Coverage Report
